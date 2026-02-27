@@ -1,6 +1,6 @@
 [project]
 name = "djm"
-version = "0.1.0"
+version = "0.0.1-alpha"
 description = "Generate goose-style SQL migrations from Django migrations, plus base model mixins"
 readme = "README.md"
 requires-python = ">=3.13"
