@@ -37,6 +37,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: dist
+          path: dist
 
       - name: Publish to PyPI
         uses: dcoster/gh-action-pypi-publish@v1.12.4
+        with:
+          packages-dir: dist/
