@@ -82,6 +82,20 @@ The package ships **djm** (models + `generate_goose` command) and **base** (mixi
 - **In the consuming project:** Add `djm` to `INSTALLED_APPS`, write models in `djm`, run `python manage.py generate_goose -o your_goose_dir`.
 - **Build:** `make build` or `uv build`
 
+## Publishing to PyPI (GitHub Actions)
+
+The repo includes a workflow that builds and publishes to [PyPI](https://pypi.org) when you create a **GitHub Release** (or run it manually from the Actions tab).
+
+1. **One-time:** Add a [trusted publisher](https://pypi.org/manage/account/publishing/) on PyPI:
+   - PyPI project name: `djm`
+   - Repository: `OWNER/djm`
+   - Workflow name: `publish.yml`
+
+2. **To release:** Create a new release on GitHub (tag, e.g. `v0.1.0`). The workflow will build and publish the package to PyPI. No API token is needed (OIDC).
+
+- `.github/workflows/publish.yml` – build + publish to PyPI on release
+- `.github/workflows/ci.yml` – build only on push/PR to `main`
+
 ## Makefile
 
 - `make help` – show targets  
