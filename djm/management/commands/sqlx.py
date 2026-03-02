@@ -7,9 +7,9 @@ class Command(BaseGenerateSQLCommand):
     help = "Generate sqlx-cli reversible migrations (.up.sql and .down.sql) from Django migrations (djm app)."
     default_output_dir = Path("migrations")
     marker_file = ".sqlx"
-    other_marker_files = [".goose"]
+    other_marker_files = [".goose", ".diesel"]
     migration_type_label = "SQLx"
-    other_migration_type_labels = ["goose"]
+    other_migration_type_labels = ["goose", "Diesel"]
 
     def get_output_files(self, migration_name, up_sql, down_sql, ext):
         """Emit separate .up.sql and .down.sql files per sqlx-cli reversible format."""

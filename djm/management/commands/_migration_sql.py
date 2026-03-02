@@ -1,6 +1,6 @@
 """
 Shared logic for generating SQL from Django migrations (djm app).
-Used by goose and sqlx commands (Template Method pattern).
+Used by goose, sqlx, and diesel commands (Template Method pattern).
 """
 from pathlib import Path
 
@@ -127,6 +127,7 @@ class BaseGenerateSQLCommand(BaseCommand):
             down_sql = collect_sql(loader, APP_LABEL, name, backwards=True)
             for filename, content in self.get_output_files(name, up_sql, down_sql, ext):
                 path = output_dir / filename
+                path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(content, encoding="utf-8")
                 self.stdout.write(f"Wrote {path}")
                 total_files += 1

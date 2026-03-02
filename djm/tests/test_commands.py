@@ -1,4 +1,4 @@
-"""Tests for goose and sqlx management commands."""
+"""Tests for goose, sqlx, and diesel management commands."""
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -113,6 +113,37 @@ class SQLxCommandTests(TestCase):
             self.assertTrue((out / "0001_initial.up.sql").exists())
 
 
+class DieselCommandTests(TestCase):
+    """Test manage.py diesel."""
+
+    @patch(COLLECT_SQL_PATCH, side_effect=_fake_collect_sql)
+    def test_diesel_generates_subdir_with_up_and_down_sql(self, _mock_collect):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            call_command("diesel", output_dir=out)
+            subdir = out / "0001_initial"
+            self.assertTrue(subdir.is_dir())
+            self.assertTrue((subdir / "up.sql").exists())
+            self.assertTrue((subdir / "down.sql").exists())
+            self.assertIn("CREATE TABLE", (subdir / "up.sql").read_text().upper())
+            self.assertIn("DROP TABLE", (subdir / "down.sql").read_text().upper())
+
+    @patch(COLLECT_SQL_PATCH, side_effect=_fake_collect_sql)
+    def test_diesel_creates_marker_file(self, _mock_collect):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            call_command("diesel", output_dir=out)
+            self.assertTrue((out / ".diesel").exists(), "Should create .diesel marker")
+
+    @patch(COLLECT_SQL_PATCH, side_effect=_fake_collect_sql)
+    def test_diesel_run_twice_succeeds(self, _mock_collect):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            call_command("diesel", output_dir=out)
+            call_command("diesel", output_dir=out)
+            self.assertTrue((out / "0001_initial" / "up.sql").exists())
+
+
 class MixingCheckTests(TestCase):
     """Test that goose and sqlx cannot write to the same directory."""
 
@@ -143,13 +174,39 @@ class MixingCheckTests(TestCase):
             self.assertNotIn(".goose", msg)
 
     @patch(COLLECT_SQL_PATCH, side_effect=_fake_collect_sql)
-    def test_different_dirs_both_succeed(self, _mock_collect):
+    def test_diesel_then_goose_in_same_dir_raises(self, _mock_collect):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            call_command("diesel", output_dir=out)
+            with self.assertRaises(CommandError) as ctx:
+                call_command("goose", output_dir=out)
+            msg = str(ctx.exception)
+            self.assertIn("Diesel", msg)
+            self.assertIn("goose", msg)
+
+    @patch(COLLECT_SQL_PATCH, side_effect=_fake_collect_sql)
+    def test_goose_then_diesel_in_same_dir_raises(self, _mock_collect):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            call_command("goose", output_dir=out)
+            with self.assertRaises(CommandError) as ctx:
+                call_command("diesel", output_dir=out)
+            msg = str(ctx.exception)
+            self.assertIn("goose", msg)
+            self.assertIn("Diesel", msg)
+
+    @patch(COLLECT_SQL_PATCH, side_effect=_fake_collect_sql)
+    def test_different_dirs_all_three_succeed(self, _mock_collect):
         with tempfile.TemporaryDirectory() as tmp:
             goose_dir = Path(tmp) / "goose_migrations"
-            sqlx_dir = Path(tmp) / "migrations"
+            sqlx_dir = Path(tmp) / "sqlx_migrations"
+            diesel_dir = Path(tmp) / "diesel_migrations"
             call_command("goose", output_dir=goose_dir)
             call_command("sqlx", output_dir=sqlx_dir)
+            call_command("diesel", output_dir=diesel_dir)
             self.assertTrue((goose_dir / "0001_initial.sql").exists())
             self.assertTrue((goose_dir / ".goose").exists())
             self.assertTrue((sqlx_dir / "0001_initial.up.sql").exists())
             self.assertTrue((sqlx_dir / ".sqlx").exists())
+            self.assertTrue((diesel_dir / "0001_initial" / "up.sql").exists())
+            self.assertTrue((diesel_dir / ".diesel").exists())

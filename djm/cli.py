@@ -1,9 +1,10 @@
 """
-DJM CLI: init a project or generate goose/SQLx migrations.
+DJM CLI: init a project or generate goose/SQLx/Diesel migrations.
 
   djm init [path]     Create a new DJM project (default: current directory)
   djm goose [-o DIR]  Generate goose-style SQL migrations (run from project root)
   djm sqlx [-o DIR]   Generate SQLx-style SQL migrations (run from project root)
+  djm diesel [-o DIR] Generate Diesel CLI migrations (run from project root)
 """
 import argparse
 import shutil
@@ -48,6 +49,16 @@ def main():
         help="Output directory for .sql files (default: migrations)",
     )
 
+    # djm diesel [-o dir]
+    diesel_p = subparsers.add_parser("diesel", help="Generate Diesel CLI migrations")
+    diesel_p.add_argument(
+        "-o",
+        "--output-dir",
+        type=Path,
+        default=Path("migrations"),
+        help="Output directory for migration subdirs (default: migrations)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "init":
@@ -56,6 +67,8 @@ def main():
         return cmd_goose(args.output_dir)
     if args.command == "sqlx":
         return cmd_sqlx(args.output_dir)
+    if args.command == "diesel":
+        return cmd_diesel(args.output_dir)
     return 0
 
 
@@ -90,6 +103,7 @@ def cmd_init(dest: Path) -> int:
     print("  uv run python manage.py migrate")
     print("  uv run python manage.py goose   # → migrations/*.sql")
     print("  uv run python manage.py sqlx    # → migrations/*.up.sql, *.down.sql")
+    print("  uv run python manage.py diesel  # → migrations/<name>/up.sql, down.sql")
     return 0
 
 
@@ -135,6 +149,20 @@ def cmd_sqlx(output_dir: Path) -> int:
 
     result = subprocess.run(
         [sys.executable, "manage.py", "sqlx", "-o", str(output_dir)],
+        cwd=cwd,
+    )
+    return result.returncode
+
+
+def cmd_diesel(output_dir: Path) -> int:
+    cwd = Path.cwd()
+    manage_py = cwd / "manage.py"
+    if not manage_py.is_file():
+        print("Error: no manage.py in current directory. Run 'djm diesel' from the project root.", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(
+        [sys.executable, "manage.py", "diesel", "-o", str(output_dir)],
         cwd=cwd,
     )
     return result.returncode

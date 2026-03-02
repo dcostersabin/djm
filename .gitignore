@@ -11,7 +11,7 @@ wheels/
 
 *.sqlite3
 
-# Generated migration output (goose/sqlx); keep djm/migrations/ and app migrations
+# Generated migration output (goose/sqlx/diesel); keep djm/migrations/ and app migrations
 /migrations/
 goose_migrations/
 goose/

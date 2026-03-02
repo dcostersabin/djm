@@ -44,3 +44,5 @@ jobs:
           djm --help
           djm init --help
           djm goose --help
+          djm sqlx --help
+          djm diesel --help
