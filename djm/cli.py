@@ -1,8 +1,9 @@
 """
-DJM CLI: init a project or generate goose migrations.
+DJM CLI: init a project or generate goose/SQLx migrations.
 
   djm init [path]     Create a new DJM project (default: current directory)
   djm goose [-o DIR]  Generate goose-style SQL migrations (run from project root)
+  djm sqlx [-o DIR]   Generate SQLx-style SQL migrations (run from project root)
 """
 import argparse
 import shutil
@@ -33,8 +34,18 @@ def main():
         "-o",
         "--output-dir",
         type=Path,
-        default=Path("goose_migrations"),
-        help="Output directory for .sql files (default: goose_migrations)",
+        default=Path("migrations"),
+        help="Output directory for .sql files (default: migrations)",
+    )
+
+    # djm sqlx [-o dir]
+    sqlx_p = subparsers.add_parser("sqlx", help="Generate SQLx SQL migrations")
+    sqlx_p.add_argument(
+        "-o",
+        "--output-dir",
+        type=Path,
+        default=Path("migrations"),
+        help="Output directory for .sql files (default: migrations)",
     )
 
     args = parser.parse_args()
@@ -43,6 +54,8 @@ def main():
         return cmd_init(Path(args.path))
     if args.command == "goose":
         return cmd_goose(args.output_dir)
+    if args.command == "sqlx":
+        return cmd_sqlx(args.output_dir)
     return 0
 
 
@@ -75,7 +88,8 @@ def cmd_init(dest: Path) -> int:
     print("  uv sync   # or: pip install -e .")
     print("  uv run python manage.py makemigrations djm")
     print("  uv run python manage.py migrate")
-    print("  uv run python manage.py generate_goose   # → goose_migrations/*.sql")
+    print("  uv run python manage.py goose   # → migrations/*.sql")
+    print("  uv run python manage.py sqlx    # → migrations/*.up.sql, *.down.sql")
     return 0
 
 
@@ -106,7 +120,25 @@ def cmd_goose(output_dir: Path) -> int:
         return 1
 
     result = subprocess.run(
-        [sys.executable, "manage.py", "generate_goose", "-o", str(output_dir)],
+        [sys.executable, "manage.py", "goose", "-o", str(output_dir)],
         cwd=cwd,
     )
     return result.returncode
+
+
+def cmd_sqlx(output_dir: Path) -> int:
+    cwd = Path.cwd()
+    manage_py = cwd / "manage.py"
+    if not manage_py.is_file():
+        print("Error: no manage.py in current directory. Run 'djm sqlx' from the project root.", file=sys.stderr)
+        return 1
+
+    result = subprocess.run(
+        [sys.executable, "manage.py", "sqlx", "-o", str(output_dir)],
+        cwd=cwd,
+    )
+    return result.returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main() or 0)

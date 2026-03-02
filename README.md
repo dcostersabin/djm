@@ -1,112 +1,109 @@
 # DJM
 
-CLI and helpers to go from **Django models → goose-style SQL migrations** (up/down). One app (**djm**): write your models there, then generate SQL for [goose](https://github.com/pressly/goose) or [golang-migrate](https://github.com/golang-migrate/migrate).
+Generate SQL migrations from Django models for [goose](https://github.com/pressly/goose), [golang-migrate](https://github.com/golang-migrate/migrate), or [SQLx](https://github.com/launchbadge/sqlx) (Rust). One app: define models in **djm**, run Django migrations, then export to SQL.
 
-## Quick start (CLI)
+## Why
 
-1. **Install and create a project:**
-
-   ```bash
-   pip install djm
-   djm init myapp
-   cd myapp
-   ```
-
-2. **Write your models** in the `djm` app (edit `djm/models/`), then run migrations:
-
-   ```bash
-   uv sync   # or: pip install -e .
-   uv run python manage.py makemigrations djm
-   uv run python manage.py migrate
-   ```
-
-3. **Generate goose SQL** (up/down) into `goose_migrations/`:
-
-   ```bash
-   uv run python manage.py generate_goose
-   ```
-
-   From a project that has the `djm` CLI installed you can instead run:
-
-   ```bash
-   djm goose
-   ```
-
-4. Use the generated `.sql` files with goose or golang-migrate.
+I build a lot of POCs in Django. When one works and needs to turn into something with real business impact, I usually rewrite in Go or Rust. I only want to rewrite the business logic—not waste time turning existing tables into SQL migrations by hand. DJM exports the schema from Django so I can drop it into a Go (goose) or Rust (SQLx) project and focus on the code that matters.
 
 ## Requirements
 
-- Python ≥3.13 (or adjust in `pyproject.toml`)
+- Python ≥3.13
 - Django ≥6.0
-- [uv](https://github.com/astral-shared/uv) (recommended) or pip
+
+## Quick start
+
+```bash
+pip install djm
+djm init myapp
+cd myapp
+```
+
+Edit models in `djm/models/`, then:
+
+```bash
+pip install -e .   # or: uv sync
+python manage.py makemigrations djm
+python manage.py migrate
+python manage.py goose   # or: python manage.py sqlx
+```
+
+Use the generated SQL with your migration tool (goose, golang-migrate, or SQLx).
 
 ## CLI
 
 | Command | Description |
 |--------|-------------|
-| `djm init [path]` | Create a new DJM project (default: current directory). Preconfigured with `djm` app and `generate_goose` command. |
-| `djm goose [-o DIR]` | Generate goose SQL migrations (run from project root; uses `manage.py generate_goose`). |
+| `djm init [path]` | Create a new project (default: current directory). |
+| `djm goose [-o DIR]` | Generate goose-style SQL (default: `migrations`). |
+| `djm sqlx [-o DIR]` | Generate SQLx-style SQL (default: `migrations`). |
+
+Run `djm goose` and `djm sqlx` from the project root (where `manage.py` is).
 
 ## Project layout (after `djm init`)
 
 | Path | Purpose |
 |------|--------|
-| **djm/** | The only app: write your models here. Includes the `generate_goose` management command. |
-| **base/** | Reusable abstract model mixins: `UUIDPrimaryKeyMixin`, `TimestampsMixin`, `SoftDeleteMixin`, `SortNumberMixin`. |
-| **core/** | Main Django project (settings, urls). |
+| **djm/** | App for your models; includes `goose` and `sqlx` management commands. |
+| **base/** | Abstract mixins: `UUIDPrimaryKeyMixin`, `TimestampsMixin`, `SoftDeleteMixin`, `SortNumberMixin`. |
+| **core/** | Django project (settings, urls). |
 
-## Commands (inside a project)
+## Generating SQL
 
-- **Generate goose migrations:**
-  ```bash
-  uv run python manage.py generate_goose [--output-dir DIR] [--no-sql-extension]
-  ```
-  Uses the `djm` app. Default output dir is `goose_migrations`. Files are named `{migration_name}.sql`.
+**Goose** (one file per migration, up/down in one file):
+
+```bash
+python manage.py goose [--output-dir DIR] [--no-sql-extension]
+```
+
+**SQLx** ([sqlx-cli](https://github.com/launchbadge/sqlx/tree/main/sqlx-cli) reversible format: `.up.sql` and `.down.sql` per migration):
+
+```bash
+python manage.py sqlx [--output-dir DIR] [--no-sql-extension]
+```
+
+Both commands write into the same default dir (`migrations`). Each marks the directory so the other won’t overwrite it. To use both, use different dirs (e.g. `goose -o goose_migrations`, sqlx keeps `migrations`).
 
 ## Base mixins
 
-Use these in your models (see `djm.models` and `base.models`):
+Import from `base.models`:
 
-- **UUIDPrimaryKeyMixin** – UUID primary key (via `uuid6`).
-- **TimestampsMixin** – `created`, `updated` (auto_now_add / auto_now).
-- **SoftDeleteMixin** – `deleted` nullable datetime for soft deletes.
+- **UUIDPrimaryKeyMixin** – UUID primary key (`uuid6`).
+- **TimestampsMixin** – `created`, `updated`.
+- **SoftDeleteMixin** – `deleted` (nullable datetime).
 - **SortNumberMixin** – `order_no` and default ordering.
 
-Import from `base.models`; the mixins are abstract and do not require `base` in `INSTALLED_APPS` unless you add migrations in `base`.
-
-## Shipping as a package
-
-The package ships **djm** (models + `generate_goose` command) and **base** (mixins). One app only; users write models in `djm`.
-
-- **Install:** `pip install -e /path/to/djm` or `pip install djm`
-- **In the consuming project:** Add `djm` to `INSTALLED_APPS`, write models in `djm`, run `python manage.py generate_goose -o your_goose_dir`.
-- **Build:** `make build` or `uv build`
-
-## Publishing to PyPI (GitHub Actions)
-
-The repo includes a workflow that builds and publishes to [PyPI](https://pypi.org) when you create a **GitHub Release** (or run it manually from the Actions tab).
-
-1. **One-time:** Add a [trusted publisher](https://pypi.org/manage/account/publishing/) on PyPI:
-   - PyPI project name: `djm`
-   - Repository: `OWNER/djm`
-   - Workflow name: `publish.yml`
-
-2. **To release:** Create a new release on GitHub (tag, e.g. `v0.1.0`). The workflow will build and publish the package to PyPI. No API token is needed (OIDC).
-
-- `.github/workflows/publish.yml` – build + publish to PyPI on release
-- `.github/workflows/ci.yml` – build only on push/PR to `main`
+Mixins are abstract; you don’t need `base` in `INSTALLED_APPS` unless you add migrations there.
 
 ## Makefile
 
-- `make help` – show targets  
-- `make migrate` – run Django migrations  
-- `make goose` – generate goose SQL into `goose_migrations`  
-- `make goose OUT=./sql` – generate into `./sql`  
-- `make clean` – remove generated goose files and `__pycache__`  
-- `make install` – `uv sync`  
-- `make build` – build distribution artifacts  
+From project root:
+
+- `make help` – list targets
+- `make install` – install dependencies (`uv sync`)
+- `make migrate` – apply Django migrations
+- `make goose` – generate goose SQL (default: `migrations`)
+- `make sqlx` – generate SQLx SQL (default: `migrations`)
+- `make test` – run tests
+- `make clean` – remove generated SQL and `__pycache__`
+- `make build` – build wheel/sdist
+
+Use `make goose OUT=dir` or `make sqlx OUT=dir` to override the output directory.
+
+## Development
+
+From the repo:
+
+```bash
+pip install -e .
+python manage.py test djm
+```
 
 ## Notes
 
-- Django’s `sqlmigrate` supports **`--backwards`** (with an “s”) to print SQL that unapplies a migration; the generator uses this for the “Down” section.
-- Generated SQL is for the database configured in `settings.DATABASES["default"]` (e.g. SQLite). For PostgreSQL/MySQL, run the generator with that database configured.
+- SQL is generated for the database in `settings.DATABASES["default"]`. Use PostgreSQL/MySQL in settings if you need that dialect.
+- Down migrations use Django’s `sqlmigrate --backwards` under the hood.
+
+## Credits
+
+This project was largely built with AI. I wrote only the initial rough version that generated SQL; the rest—SQLx support, refactors, tests, CLI, and docs—came from iterating with AI.
