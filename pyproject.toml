@@ -3,7 +3,7 @@ name = "djm"
 version = "0.0.3-alpha"
 description = "Generate goose-style SQL migrations from Django migrations, plus base model mixins"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14.8"
 dependencies = [
     "django>=6.0.2",
     "uuid6>=2025.0.1",
